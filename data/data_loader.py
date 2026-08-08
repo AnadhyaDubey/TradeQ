@@ -51,3 +51,35 @@ if __name__ == "__main__":
     featured = engineer_features(data)
     print(featured.shape)
     print(featured[["Close", "log_return", "SMA_10", "SMA_50", "SMA_ratio", "RSI_14", "volatility_10"]].head())
+def chronological_split(df: pd.DataFrame, split_date: str):
+    """Split strictly by date -- no shuffling, ever."""
+    train = df[df.index < split_date].copy()
+    test = df[df.index >= split_date].copy()
+    if len(train) == 0 or len(test) == 0:
+        raise ValueError("split_date leaves one side empty -- check your date range.")
+    return train, test
+
+
+def normalize_with_train_stats(train: pd.DataFrame, test: pd.DataFrame, cols):
+    """Z-score normalize using ONLY train stats, applied to both sets."""
+    means = train[cols].mean()
+    stds = train[cols].std().replace(0, 1)
+    train_norm = train.copy()
+    test_norm = test.copy()
+    for c in cols:
+        train_norm[f"{c}_norm"] = (train[c] - means[c]) / stds[c]
+        test_norm[f"{c}_norm"] = (test[c] - means[c]) / stds[c]
+    return train_norm, test_norm, means, stds
+
+
+if __name__ == "__main__":
+    data = download_price_data("AAPL", "2015-01-01", "2024-01-01")
+    featured = engineer_features(data)
+    train, test = chronological_split(featured, "2022-01-01")
+
+    cols_to_normalize = ["log_return", "SMA_ratio", "RSI_14", "volatility_10"]
+    train_norm, test_norm, means, stds = normalize_with_train_stats(train, test, cols_to_normalize)
+
+    print(f"Train: {train_norm.shape}, dates {train_norm.index.min().date()} to {train_norm.index.max().date()}")
+    print(f"Test:  {test_norm.shape}, dates {test_norm.index.min().date()} to {test_norm.index.max().date()}")
+    print(train_norm[["log_return_norm", "SMA_ratio_norm", "RSI_14_norm", "volatility_10_norm"]].head())
