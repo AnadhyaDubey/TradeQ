@@ -1,0 +1,16 @@
+venv/
+env/
+ENV/
+__pycache__/
+*.pyc
+*.pyo
+.ipynb_checkpoints/
+.env
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+data/*.csv
+models/*.pth
+models/*.pt
+results/*.png

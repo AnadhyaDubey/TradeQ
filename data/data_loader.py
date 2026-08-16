@@ -7,6 +7,12 @@ Downloads OHLCV price data and prepares it for the RL trading environment.
 import numpy as np
 import pandas as pd
 import yfinance as yf
+FEATURE_COLUMNS = [
+    "log_return_norm",
+    "SMA_ratio_norm",
+    "RSI_14_norm",
+    "volatility_10_norm",
+]
 
 
 def download_price_data(ticker: str, start: str, end: str) -> pd.DataFrame:
