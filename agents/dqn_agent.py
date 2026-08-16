@@ -71,6 +71,10 @@ class DQNAgent:
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.q_network = QNetwork(state_dim, action_dim).to(self.device)
+        self.target_network = QNetwork(state_dim, action_dim).to(self.device)
+        self.target_network.load_state_dict(self.q_network.state_dict())
+        self.update_every = 100   # sync target network every N training steps
+        self.train_step_count = 0
 
         self.optimizer = torch.optim.Adam(self.q_network.parameters(), lr=lr)
         self.replay_buffer = ReplayBuffer()
@@ -90,6 +94,59 @@ class DQNAgent:
     def decay_epsilon(self):
         if self.epsilon > self.epsilon_min:
             self.epsilon *= self.epsilon_decay
+    def learn(self, batch_size: int = 64):
+        """One training step: sample a batch, compute Bellman targets, backprop."""
+        if len(self.replay_buffer) < batch_size:
+            return None  # not enough experience yet
+
+        states, actions, rewards, next_states, dones = self.replay_buffer.sample(batch_size)
+
+        states_t = torch.tensor(states).to(self.device)
+        actions_t = torch.tensor(actions).to(self.device)
+        rewards_t = torch.tensor(rewards).to(self.device)
+        next_states_t = torch.tensor(next_states).to(self.device)
+        dones_t = torch.tensor(dones).to(self.device)
+
+        # current Q-values for the actions actually taken
+        q_values = self.q_network(states_t)
+        current_q = q_values.gather(1, actions_t.unsqueeze(1)).squeeze(1)
+
+        # Bellman target: reward + gamma * best next Q-value (from target network)
+        with torch.no_grad():
+            next_q_values = self.target_network(next_states_t)
+            max_next_q = next_q_values.max(dim=1)[0]
+            target_q = rewards_t + self.gamma * max_next_q * (1 - dones_t)
+
+        loss = torch.nn.functional.mse_loss(current_q, target_q)
+
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
+
+        self.train_step_count += 1
+        if self.train_step_count % self.update_every == 0:
+            self.target_network.load_state_dict(self.q_network.state_dict())
+
+        return loss.item()
+
+
+if __name__ == "__main__":
+    agent = DQNAgent(state_dim=5, action_dim=3)
+
+    # Fill the buffer with enough random fake experience to allow a batch
+    for i in range(200):
+        s = np.random.rand(5).astype(np.float32)
+        a = random.randrange(3)
+        r = np.random.uniform(-0.02, 0.02)
+        s2 = np.random.rand(5).astype(np.float32)
+        d = False
+        agent.remember(s, a, r, s2, d)
+
+    print("Buffer filled:", len(agent.replay_buffer))
+
+    for step in range(10):
+        loss = agent.learn(batch_size=64)
+        print(f"Learn step {step}: loss={loss:.5f}" if loss is not None else "not enough data yet")
 
 
 if __name__ == "__main__":
