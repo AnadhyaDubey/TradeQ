@@ -29,7 +29,7 @@ Evaluated on a held-out test set (2022–2023) the agents never saw during train
 *(Backtest comparison plot available in `results/backtest_comparison.png`)*
 
 ## How It Works
-rl-trading-agent/
+TradeQ/
 ├── data/
 │ └── data_loader.py # download, feature engineering, chronological split
 ├── envs/
